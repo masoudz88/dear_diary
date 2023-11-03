@@ -5,6 +5,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
+import 'package:provider/provider.dart';
+
+import 'model_theme.dart';
 
 
 Future<void> main() async {
@@ -22,13 +25,24 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: ThemeData(
-        primarySwatch: Colors.purple,
-        scaffoldBackgroundColor: Colors.grey[100],
-        textTheme: GoogleFonts.openSansTextTheme(),
-      ),
-      home: const AuthGate(),
+    return ChangeNotifierProvider(
+        create: (_) => ModelTheme(),
+        child: Consumer<ModelTheme>(
+        builder: (context, ModelTheme themeNotifier, child) {
+          return MaterialApp(
+            theme: themeNotifier.isDark
+                ? ThemeData(
+              brightness: Brightness.dark,
+            )
+                : ThemeData(
+                brightness: Brightness.light,
+                primaryColor: Colors.green,
+                primarySwatch: Colors.green
+            ),
+            debugShowCheckedModeBanner: false,
+            home: const AuthGate(),
+          );
+      }),
     );
   }
 }

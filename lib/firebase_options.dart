@@ -66,6 +66,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '812965533254',
     projectId: 'deardiary-49853',
     storageBucket: 'deardiary-49853.appspot.com',
+    androidClientId: '812965533254-5k18e9amcue65gs5d3eph8q59vggfdc4.apps.googleusercontent.com',
+    iosClientId: '812965533254-k0uq6m822239som5sq7mur499klfr70a.apps.googleusercontent.com',
     iosBundleId: 'com.example.dearDiary',
   );
 
@@ -75,6 +77,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '812965533254',
     projectId: 'deardiary-49853',
     storageBucket: 'deardiary-49853.appspot.com',
+    androidClientId: '812965533254-5k18e9amcue65gs5d3eph8q59vggfdc4.apps.googleusercontent.com',
+    iosClientId: '812965533254-o73bi658h8fndb8k39ur3ugbqs9lajn8.apps.googleusercontent.com',
     iosBundleId: 'com.example.dearDiary.RunnerTests',
   );
 }
