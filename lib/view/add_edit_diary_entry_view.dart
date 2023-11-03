@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:dear_diary/controller/diary_controller.dart';
+import 'package:dear_diary/controller/diary_entry_service.dart';
 import 'package:dear_diary/model/diary_entry_model.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:dear_diary/model_theme.dart';
 
-class DiaryEntryView extends StatefulWidget {
+class AddEditDiaryEntryView extends StatefulWidget {
   final Function(DiaryEntry entry) onEntryAdded;
   final DiaryEntry? entryToEdit;
 
-  const DiaryEntryView({
+  const AddEditDiaryEntryView({
     super.key,
     required this.onEntryAdded,
     this.entryToEdit,
   });
 
   @override
-  State<DiaryEntryView> createState() => _DiaryEntryViewState();
+  State<AddEditDiaryEntryView> createState() => _AddEditDiaryEntryViewState();
 }
 
-class _DiaryEntryViewState extends State<DiaryEntryView> {
+class _AddEditDiaryEntryViewState extends State<AddEditDiaryEntryView> {
   final descriptionController = TextEditingController();
   DateTime selectedDate = DateTime.now();
   int rating = 1; // Assuming a default value
@@ -34,7 +34,7 @@ class _DiaryEntryViewState extends State<DiaryEntryView> {
     }
   }
 
-  void _saveEntry(DiaryController diaryController) async {
+  void _saveEntry(DiaryEntryService diaryController) async {
     if (descriptionController.text.isEmpty) {
       _showErrorSnackbar("Description cannot be empty!");
       return;
@@ -72,7 +72,7 @@ class _DiaryEntryViewState extends State<DiaryEntryView> {
 
   @override
   Widget build(BuildContext context) {
-    final DiaryController diaryController = DiaryController();
+    final DiaryEntryService diaryController = DiaryEntryService();
     return Consumer<ModelTheme>(
       builder: (context, ModelTheme themeNotifier, child) {
         return Scaffold(
@@ -115,7 +115,6 @@ class _DiaryEntryViewState extends State<DiaryEntryView> {
                     decoration: const InputDecoration(
                       labelText: 'Description',
                       hintText: 'What happened today?',
-                      // Removed const from decoration since we are changing the style based on the theme
                     ),
                     maxLength: 140,
                     maxLines: 5,
@@ -136,15 +135,13 @@ class _DiaryEntryViewState extends State<DiaryEntryView> {
                         return Theme(
                           data: themeNotifier.isDark ?
                           ThemeData.dark().copyWith(
-                            // Change this to ThemeData.dark() if you want dark mode
                             colorScheme: const ColorScheme.dark(
-                              primary: Colors.green, // header background color
+                              primary: Colors.green,
                             ),
                           ):
                           ThemeData.light().copyWith(
-                            // Change this to ThemeData.dark() if you want dark mode
                             colorScheme: const ColorScheme.light(
-                              primary: Colors.green, // header background color
+                              primary: Colors.green,
                             ),
                           ),
                           child: child!,
@@ -166,9 +163,7 @@ class _DiaryEntryViewState extends State<DiaryEntryView> {
                     thumbColor: themeNotifier.isDark ? Colors.white : Colors.green,
                     overlayColor: themeNotifier.isDark ? Colors.white.withOpacity(0.1) : Colors.green.withOpacity(0.2),
                     valueIndicatorColor: themeNotifier.isDark ? Colors.grey : Colors.green,
-                    // You might want to adjust the thumb shape as well
                     thumbShape: RoundSliderThumbShape(enabledThumbRadius: 12.0),
-                    // Also the overlay shape (the effect on thumb when pressed)
                     overlayShape: RoundSliderOverlayShape(overlayRadius: 24.0),
                   ),
                   child: Slider(

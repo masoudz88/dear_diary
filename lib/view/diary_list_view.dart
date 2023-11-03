@@ -1,22 +1,22 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:dear_diary/controller/diary_controller.dart';
+import 'package:dear_diary/controller/diary_entry_service.dart';
 import 'package:dear_diary/model/diary_entry_model.dart';
-import 'package:dear_diary/view/diary_entry_view.dart';
+import 'package:dear_diary/view/add_edit_diary_entry_view.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:dear_diary/model_theme.dart';
 
-class DiaryLogView extends StatefulWidget {
-  const DiaryLogView({super.key});
+class DiaryListView extends StatefulWidget {
+  const DiaryListView({super.key});
 
   @override
-  State<DiaryLogView> createState() => _DiaryLogViewState();
+  State<DiaryListView> createState() => _DiaryListViewState();
 }
 
-class _DiaryLogViewState extends State<DiaryLogView> {
-  final DiaryController diaryController = DiaryController();
+class _DiaryListViewState extends State<DiaryListView> {
+  final DiaryEntryService diaryController = DiaryEntryService();
 
   List<Widget> _buildStars(int rating) {
     List<Widget> stars = [];
@@ -52,7 +52,6 @@ class _DiaryLogViewState extends State<DiaryLogView> {
           appBar: AppBar(
             title: const Text('Diary Entries'),
             backgroundColor: themeNotifier.isDark ? Colors.black : Colors.green,
-            // AppBar color changes based on theme
             actions: [
               IconButton(
                 icon: Icon(themeNotifier.isDark ? Icons.wb_sunny : Icons
@@ -101,7 +100,7 @@ class _DiaryLogViewState extends State<DiaryLogView> {
                           style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: themeNotifier.isDark ? Colors.white : Colors.black, // Text color changes based on theme
+                              color: themeNotifier.isDark ? Colors.white : Colors.black,
                           ),
                         ),
                       ),
@@ -149,10 +148,9 @@ class _DiaryLogViewState extends State<DiaryLogView> {
                                                   context,
                                                   MaterialPageRoute(
                                                     builder: (context) =>
-                                                        DiaryEntryView(
+                                                        AddEditDiaryEntryView(
                                                           onEntryAdded: (
                                                               entry) {
-                                                            // Pass the new entry or updated entry back to refresh the state
                                                             setState(() {});
                                                           },
                                                           entryToEdit: e,
@@ -195,9 +193,8 @@ class _DiaryLogViewState extends State<DiaryLogView> {
                 context,
                 MaterialPageRoute(
                   builder: (context) =>
-                      DiaryEntryView(
+                      AddEditDiaryEntryView(
                         onEntryAdded: (entry) {
-                          // Pass the new entry back to refresh the state
                           setState(() {});
                         },
                       ),
@@ -205,7 +202,7 @@ class _DiaryLogViewState extends State<DiaryLogView> {
               );
             },
             backgroundColor: themeNotifier.isDark ? Colors.grey : Colors.green,
-            child: const Icon(Icons.add), // FAB color changes based on theme
+            child: const Icon(Icons.add),
           ),
         );
       },

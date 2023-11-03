@@ -2,11 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dear_diary/model/diary_entry_model.dart';
 
-class DiaryController {
+class DiaryEntryService {
   final user = FirebaseAuth.instance.currentUser;
   final CollectionReference diaryCollection;
 
-  DiaryController()
+  DiaryEntryService()
       : diaryCollection = FirebaseFirestore.instance
       .collection('diaries')
       .doc(FirebaseAuth.instance.currentUser!.uid)
