@@ -35,5 +35,4 @@ class DiaryEntryService {
         .get();
     return snapshot.docs.isNotEmpty;
   }
-
 }

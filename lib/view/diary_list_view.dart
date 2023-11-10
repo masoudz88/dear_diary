@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,6 +8,8 @@ import 'package:dear_diary/view/add_edit_diary_entry_view.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:dear_diary/model_theme.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class DiaryListView extends StatefulWidget {
   const DiaryListView({super.key});
@@ -17,6 +20,106 @@ class DiaryListView extends StatefulWidget {
 
 class _DiaryListViewState extends State<DiaryListView> {
   final DiaryEntryService diaryController = DiaryEntryService();
+  final ImagePicker _picker = ImagePicker();
+  List<XFile> _images = []; // Changed to list of images
+  DiaryEntry? _selectedEntry;
+  List<DiaryEntry>? _filteredEntries;
+
+
+  Future<void> _pickImageFromGallery() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() {
+        _images.add(image);
+      });
+    }
+  }
+
+  Future<void> _pickImageFromCamera() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+    if (image != null) {
+      setState(() {
+        _images.add(image);
+      });
+    }
+  }
+
+  Future<void> _uploadImagesToFirebase(DiaryEntry entry) async {
+    if (_images.isEmpty) return;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    List<String> uploadedImageUrls = [];
+    for (var image in _images) {
+      final firebaseStorageRef = FirebaseStorage.instance
+          .ref()
+          .child('images/${currentUser.uid}/${image.name}');
+
+      try {
+        final uploadTask = await firebaseStorageRef.putFile(File(image.path));
+        if (uploadTask.state == TaskState.success) {
+          final downloadURL = await firebaseStorageRef.getDownloadURL();
+          uploadedImageUrls.add(downloadURL);
+        }
+      } catch (e) {
+        print("Failed to upload image: $e");
+      }
+    }
+
+    _updateEntryWithImages(entry, uploadedImageUrls);
+  }
+
+  Future<void> _updateEntryWithImages(DiaryEntry entry, List<String> imageUrls) async {
+    DiaryEntry updatedEntry = DiaryEntry(
+      id: entry.id,
+      date: entry.date,
+      description: entry.description,
+      rating: entry.rating,
+      imageUrls: (entry.imageUrls ?? []) + imageUrls,
+    );
+
+    await diaryController.updateEntry(updatedEntry);
+    setState(() {
+      _selectedEntry = updatedEntry;
+      _images = []; // Reset the images after uploading
+    });
+  }
+
+  Widget _buildImageList(DiaryEntry entry) {
+    return GridView.count(
+      shrinkWrap: true,
+      crossAxisCount: 2,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      children: List.generate(entry.imageUrls?.length ?? 0, (index) {
+        String imageUrl = entry.imageUrls![index];
+        return Stack(
+          alignment: Alignment.topRight,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8.0),
+              child: AspectRatio(
+                aspectRatio: 1, // Maintain the aspect ratio of 1:1
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover, // Cover the entire area of the box
+                ),
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.remove_circle),
+              onPressed: () {
+                setState(() {
+                  entry.imageUrls?.removeAt(index);
+                  diaryController.updateEntry(entry);
+                });
+              },
+            ),
+          ],
+        );
+      }),
+    );
+  }
 
   List<Widget> _buildStars(int rating) {
     List<Widget> stars = [];
@@ -44,6 +147,45 @@ class _DiaryListViewState extends State<DiaryListView> {
     return groupedEntries;
   }
 
+
+  void _showSearchDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        int? searchRating;
+        return AlertDialog(
+          title: Text('Search by Rating'),
+          content: TextField(
+            keyboardType: TextInputType.number,
+            onChanged: (value) {
+              searchRating = int.tryParse(value);
+            },
+            decoration: InputDecoration(hintText: "Enter rating (1-5)"),
+          ),
+          actions: [
+            TextButton(
+              child: Text('Search'),
+              onPressed: () {
+                if (searchRating != null) {
+                  _filterEntriesByRating(searchRating!);
+                  Navigator.of(context).pop();
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _filterEntriesByRating(int rating) async {
+    List<DiaryEntry> allEntries = await diaryController.getAllEntries();
+    setState(() {
+      _filteredEntries = allEntries.where((entry) => entry.rating == rating).toList();
+    });
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ModelTheme>(
@@ -54,12 +196,25 @@ class _DiaryListViewState extends State<DiaryListView> {
             backgroundColor: themeNotifier.isDark ? Colors.black : Colors.green,
             actions: [
               IconButton(
-                icon: Icon(themeNotifier.isDark ? Icons.wb_sunny : Icons
-                    .nightlight_round),
+                icon: const Icon(Icons.search),
+                onPressed: () {
+                  _showSearchDialog(context); // Function to handle search
+                },
+              ),
+              if (_filteredEntries != null) // Show the clear icon only when there is a filter applied
+                IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    setState(() {
+                      _filteredEntries = null; // Clear the search filter
+                    });
+                  },
+                ),
+              IconButton(
+                icon: Icon(themeNotifier.isDark ? Icons.wb_sunny : Icons.nightlight_round),
                 onPressed: () {
                   setState(() {
-                    themeNotifier.isDark =
-                    !themeNotifier.isDark; // Toggle theme state
+                    themeNotifier.isDark = !themeNotifier.isDark; // Toggle theme state
                   });
                 },
               ),
@@ -73,8 +228,7 @@ class _DiaryListViewState extends State<DiaryListView> {
           ),
           body: StreamBuilder(
             stream: diaryController.diaryCollection.snapshots(),
-            builder: (BuildContext context,
-                AsyncSnapshot<QuerySnapshot> snapshot) {
+            builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
               if (snapshot.hasError) {
                 return const Center(child: Text('Something went wrong!'));
               }
@@ -83,8 +237,10 @@ class _DiaryListViewState extends State<DiaryListView> {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              List<DiaryEntry> entries = snapshot.data!.docs.map((doc) =>
-                  DiaryEntry.fromMap(doc)).toList();
+              List<DiaryEntry> entries = snapshot.data!.docs.map((doc) => DiaryEntry.fromMap(doc)).toList();
+              if (_filteredEntries != null) {
+                entries = _filteredEntries!;
+              }
               var groupedEntries = _groupEntriesByMonth(entries);
 
               return ListView(
@@ -98,9 +254,9 @@ class _DiaryListViewState extends State<DiaryListView> {
                         child: Text(
                           entry.key,
                           style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: themeNotifier.isDark ? Colors.white : Colors.black,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: themeNotifier.isDark ? Colors.white : Colors.black,
                           ),
                         ),
                       ),
@@ -110,8 +266,7 @@ class _DiaryListViewState extends State<DiaryListView> {
                           child: Container(
                             decoration: BoxDecoration(
                               color: themeNotifier.isDark ? Colors.black : Colors.white,
-                              border: Border.all(
-                                  color: Colors.grey.shade300, width: 1),
+                              border: Border.all(color: Colors.grey.shade300, width: 1),
                               borderRadius: BorderRadius.circular(10),
                               boxShadow: [
                                 BoxShadow(
@@ -128,8 +283,7 @@ class _DiaryListViewState extends State<DiaryListView> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment
-                                        .spaceBetween,
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
                                         DateFormat('EEE, MMM d').format(e.date),
@@ -140,32 +294,31 @@ class _DiaryListViewState extends State<DiaryListView> {
                                       ),
                                       Row(
                                         children: _buildStars(e.rating)
-                                          ..add(const SizedBox(width: 10))..add(
+                                          ..add(const SizedBox(width: 10))
+                                          ..add(
                                             IconButton(
                                               icon: const Icon(Icons.edit),
                                               onPressed: () {
                                                 Navigator.push(
                                                   context,
                                                   MaterialPageRoute(
-                                                    builder: (context) =>
-                                                        AddEditDiaryEntryView(
-                                                          onEntryAdded: (
-                                                              entry) {
-                                                            setState(() {});
-                                                          },
-                                                          entryToEdit: e,
-                                                        ),
+                                                    builder: (context) => AddEditDiaryEntryView(
+                                                      onEntryAdded: (entry) {
+                                                        setState(() {});
+                                                      },
+                                                      entryToEdit: e,
+                                                    ),
                                                   ),
                                                 );
                                               },
                                             ),
-                                          )..add(
-                                              const SizedBox(width: 10))..add(
+                                          )
+                                          ..add(const SizedBox(width: 10))
+                                          ..add(
                                             IconButton(
                                               icon: const Icon(Icons.delete),
                                               onPressed: () async {
-                                                await diaryController
-                                                    .deleteEntry(e);
+                                                await diaryController.deleteEntry(e);
                                                 setState(() {});
                                               },
                                             ),
@@ -173,14 +326,39 @@ class _DiaryListViewState extends State<DiaryListView> {
                                       ),
                                     ],
                                   ),
-                                  Text(e.description,
-                                      style: const TextStyle(fontSize: 16)),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      ElevatedButton(
+                                        onPressed: _pickImageFromGallery,
+                                        child: const Text('Gallery'),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: _pickImageFromCamera,
+                                        child: const Text('Camera'),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          _selectedEntry = e;
+                                          _uploadImagesToFirebase(e);
+                                        },
+                                        child: const Text('Upload to Firebase'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: themeNotifier.isDark ? Colors.green : Colors.orange,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(e.description, style: const TextStyle(fontSize: 16)),
+                                  const SizedBox(height: 10),
+                                  _buildImageList(e),
                                 ],
                               ),
                             ),
                           ),
                         );
-                      }).toList()
+                      }).toList(),
                     ],
                   );
                 }).toList(),
@@ -192,12 +370,11 @@ class _DiaryListViewState extends State<DiaryListView> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) =>
-                      AddEditDiaryEntryView(
-                        onEntryAdded: (entry) {
-                          setState(() {});
-                        },
-                      ),
+                  builder: (context) => AddEditDiaryEntryView(
+                    onEntryAdded: (entry) {
+                      setState(() {});
+                    },
+                  ),
                 ),
               );
             },
