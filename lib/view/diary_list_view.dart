@@ -21,7 +21,7 @@ class DiaryListView extends StatefulWidget {
 class _DiaryListViewState extends State<DiaryListView> {
   final DiaryEntryService diaryController = DiaryEntryService();
   final ImagePicker _picker = ImagePicker();
-  List<XFile> _images = []; // Changed to list of images
+  List<XFile> _images = [];
   DiaryEntry? _selectedEntry;
   List<DiaryEntry>? _filteredEntries;
 
@@ -32,6 +32,7 @@ class _DiaryListViewState extends State<DiaryListView> {
       setState(() {
         _images.add(image);
       });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Image picked from gallery")));
     }
   }
 
@@ -41,8 +42,10 @@ class _DiaryListViewState extends State<DiaryListView> {
       setState(() {
         _images.add(image);
       });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Image picked from camera")));
     }
   }
+
 
   Future<void> _uploadImagesToFirebase(DiaryEntry entry) async {
     if (_images.isEmpty) return;
@@ -66,8 +69,12 @@ class _DiaryListViewState extends State<DiaryListView> {
       }
     }
 
-    _updateEntryWithImages(entry, uploadedImageUrls);
+    if (uploadedImageUrls.isNotEmpty) {
+      _updateEntryWithImages(entry, uploadedImageUrls);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Images uploaded successfully")));
+    }
   }
+
 
   Future<void> _updateEntryWithImages(DiaryEntry entry, List<String> imageUrls) async {
     DiaryEntry updatedEntry = DiaryEntry(
@@ -99,20 +106,32 @@ class _DiaryListViewState extends State<DiaryListView> {
             ClipRRect(
               borderRadius: BorderRadius.circular(8.0),
               child: AspectRatio(
-                aspectRatio: 1, // Maintain the aspect ratio of 1:1
+                aspectRatio: 1,
                 child: Image.network(
                   imageUrl,
-                  fit: BoxFit.cover, // Cover the entire area of the box
+                  fit: BoxFit.cover,
                 ),
               ),
             ),
             IconButton(
               icon: Icon(Icons.remove_circle),
-              onPressed: () {
+              onPressed: () async {
+                // Remove from Firebase Storage
+                await FirebaseStorage.instance.refFromURL(imageUrl).delete();
+                // Update entry by removing the image URL
+                List<String> updatedUrls = List.from(entry.imageUrls!)..removeAt(index);
+                DiaryEntry updatedEntry = DiaryEntry(
+                  id: entry.id,
+                  date: entry.date,
+                  description: entry.description,
+                  rating: entry.rating,
+                  imageUrls: updatedUrls,
+                );
+                await diaryController.updateEntry(updatedEntry);
                 setState(() {
                   entry.imageUrls?.removeAt(index);
-                  diaryController.updateEntry(entry);
                 });
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Image removed successfully")));
               },
             ),
           ],
@@ -120,6 +139,7 @@ class _DiaryListViewState extends State<DiaryListView> {
       }),
     );
   }
+
 
   List<Widget> _buildStars(int rating) {
     List<Widget> stars = [];
@@ -198,7 +218,7 @@ class _DiaryListViewState extends State<DiaryListView> {
               IconButton(
                 icon: const Icon(Icons.search),
                 onPressed: () {
-                  _showSearchDialog(context); // Function to handle search
+                  _showSearchDialog(context);
                 },
               ),
               if (_filteredEntries != null) // Show the clear icon only when there is a filter applied
